@@ -36,9 +36,12 @@ function Register() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/register", {
+      const res = await fetch("/api/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
         body: JSON.stringify(form),
       });
 
@@ -88,7 +91,7 @@ function Register() {
               fullWidth
               value={form.email}
               onChange={handleChange}
-              placeholder="e.g. juan@school.edu.ph"
+              placeholder="e.g. juan@smu.edu.ph"
             />
           </div>
 
@@ -119,7 +122,7 @@ function Register() {
               fullWidth
               value={form.section}
               onChange={handleChange}
-              placeholder="e.g. Sampaguita"
+              placeholder="e.g. St. John"
             />
           </div>
 

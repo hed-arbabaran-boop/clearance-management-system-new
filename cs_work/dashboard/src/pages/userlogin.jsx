@@ -21,9 +21,12 @@ function UserLogin() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/login", {
+      const res = await fetch("/api/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
         body: JSON.stringify({ email, password, role }),
       });
 
@@ -31,7 +34,6 @@ function UserLogin() {
 
       if (res.ok && data.token) {
         localStorage.setItem("token", data.token);
-        // Route by role
         if (data.role === "student")      window.location.href = "/dashboard";
         else if (data.role === "teacher") window.location.href = "/teacher";
         else if (data.role === "admin")   window.location.href = "/admin";

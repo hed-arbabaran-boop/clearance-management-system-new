@@ -22,8 +22,8 @@ function SubjectModal({ subject, index, onClose, onUploadDone }) {
   const fileRef = useRef();
 
   if (!subject) return null;
-  const isCleared    = subject.status === "cleared";
-  const hasUploaded  = !!subject.uploadedFile;
+  const isCleared   = subject.status === "cleared";
+  const hasUploaded = !!subject.uploadedFile;
 
   async function handleUpload() {
     if (!file) return;
@@ -32,9 +32,12 @@ function SubjectModal({ subject, index, onClose, onUploadDone }) {
     formData.append("file", file);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/clearance/upload/${index}`, {
+      const res = await fetch(`/api/clearance/upload/${index}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "ngrok-skip-browser-warning": "true",
+        },
         body: formData,
       });
       const data = await res.json();
@@ -146,8 +149,8 @@ export default function StudentDashboard() {
   const [subjects, setSubjects] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState("");
-  const [page,     setPage]     = useState("clearance"); // "clearance" | "profile"
-  const [modal,    setModal]    = useState(null); // { subject, index }
+  const [page,     setPage]     = useState("clearance");
+  const [modal,    setModal]    = useState(null);
 
   const token = localStorage.getItem("token");
 
@@ -168,8 +171,11 @@ export default function StudentDashboard() {
 
   function fetchClearance() {
     const t = localStorage.getItem("token");
-    fetch("http://localhost:5000/api/clearance", {
-      headers: { Authorization: `Bearer ${t}` },
+    fetch("/api/clearance", {
+      headers: {
+        Authorization: `Bearer ${t}`,
+        "ngrok-skip-browser-warning": "true",
+      },
     })
       .then((r) => { if (!r.ok) throw new Error("Failed to fetch."); return r.json(); })
       .then((d) => { setSubjects(d.subjects || []); setLoading(false); })
@@ -183,7 +189,6 @@ export default function StudentDashboard() {
   const progress     = total > 0 ? Math.round((clearedCount / total) * 100) : 0;
   const allCleared   = clearedCount === total && total > 0;
 
-  /* ── render ── */
   return (
     <div className="sd-wrapper">
       {/* ── Navbar ── */}

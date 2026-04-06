@@ -7,21 +7,28 @@ const path     = require("path");
 const fs       = require("fs");
 require("dotenv").config();
 
-const User          = require("./models/User");
+const User           = require("./models/User");
 const ClearanceModel = require("./models/Clearance");
 const Clearance      = ClearanceModel;
 const SUBJECTS_BY_GRADE = ClearanceModel.SUBJECTS_BY_GRADE;
 
 const app = express();
+
+// ── Middleware ───────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded files statically
+// ── Ngrok browser warning bypass ────────────────────────
+app.use((req, res, next) => {
+  res.setHeader("ngrok-skip-browser-warning", "true");
+  next();
+});
+
+// ── Uploads setup ───────────────────────────────────────
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 app.use("/uploads", express.static(uploadsDir));
 
-// Multer config – store files in server/uploads/
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename:    (req, file, cb) => {
@@ -31,7 +38,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = /jpeg|jpg|png|pdf/;
     const ext = allowed.test(path.extname(file.originalname).toLowerCase());
@@ -41,13 +48,13 @@ const upload = multer({
   },
 });
 
-// Connect to MongoDB
+// ── MongoDB ─────────────────────────────────────────────
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.log(err));
 
-// ── Auth middleware ───────────────────────────────────────────────────────────
+// ── Auth middleware ─────────────────────────────────────
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer "))
@@ -60,13 +67,12 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// ── Test ─────────────────────────────────────────────────────────────────────
-app.get("/", (req, res) => res.send("API is running"));
+// ── API Routes ──────────────────────────────────────────
+app.get("/api", (req, res) => res.send("API is running"));
 
-// ── REGISTER ─────────────────────────────────────────────────────────────────
+// Register
 app.post("/api/register", async (req, res) => {
   const { username, password, email, idNumber, gradeLevel, section } = req.body;
-
   if (!username || !password || !email || !idNumber || !gradeLevel || !section)
     return res.status(400).json({ message: "All fields are required." });
 
@@ -95,7 +101,7 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-// ── LOGIN (email-based, role-aware) ──────────────────────────────────────────
+// Login
 app.post("/api/login", async (req, res) => {
   const { email, password, role } = req.body;
   if (!email || !password || !role)
@@ -125,7 +131,7 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// ── GET clearance ─────────────────────────────────────────────────────────────
+// Get clearance
 app.get("/api/clearance", authMiddleware, async (req, res) => {
   try {
     let clearance = await Clearance.findOne({ userId: req.user.id });
@@ -141,7 +147,7 @@ app.get("/api/clearance", authMiddleware, async (req, res) => {
   }
 });
 
-// ── UPLOAD clearance file for a subject ───────────────────────────────────────
+// Upload clearance file
 app.post("/api/clearance/upload/:subjectIndex", authMiddleware, upload.single("file"), async (req, res) => {
   try {
     const idx = parseInt(req.params.subjectIndex);
@@ -151,7 +157,6 @@ app.post("/api/clearance/upload/:subjectIndex", authMiddleware, upload.single("f
     if (clearance.subjects[idx].status === "cleared")
       return res.status(400).json({ message: "Subject is already cleared." });
 
-    // Delete old file if it exists
     if (clearance.subjects[idx].uploadedFile) {
       const oldPath = path.join(uploadsDir, clearance.subjects[idx].uploadedFile);
       if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
@@ -169,4 +174,19 @@ app.post("/api/clearance/upload/:subjectIndex", authMiddleware, upload.single("f
   }
 });
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+// ── Serve React (Vite) dashboard ─────────────────────────
+const dashboardBuildPath = path.join(__dirname, "../dashboard/dist");
+console.log("Serving React from:", dashboardBuildPath);
+
+if (fs.existsSync(dashboardBuildPath)) {
+  app.use(express.static(dashboardBuildPath));
+  app.get("/{*path}", (req, res) => {
+    res.sendFile(path.join(dashboardBuildPath, "index.html"));
+  });
+} else {
+  console.error("React build folder NOT found!");
+}
+
+// ── Start server ───────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
